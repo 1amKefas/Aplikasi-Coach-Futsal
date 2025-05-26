@@ -30,6 +30,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  lucide_icons: 0.257.0
+  intl: ^0.20.2
+  fl_chart: ^1.0.0
+  firebase_core: ^3.13.1
+  cloud_firestore: ^5.6.8
+  geolocator: ^14.0.0
+  firebase_auth: ^5.5.4
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -52,6 +59,19 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
+  assets:
+    - assets/images/background.png
+    - assets/images/singa.png
+    - assets/images/jersey1.png
+    - assets/images/jersey2.png
+    
+    # Update Page Profile
+    - assets/images/profile.png
+    - assets/images/lapangan.png
+    - assets/images/kefas.jpg
+    - assets/images/miftah.jpg
+
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -73,9 +93,10 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
-  # fonts:
-  #   - family: Schyler
-  #     fonts:
+  #fonts:
+  #  - family: Schyler
+  #    fonts:
+  #      - asset: fonts/VenusRising.otf
   #       - asset: fonts/Schyler-Regular.ttf
   #       - asset: fonts/Schyler-Italic.ttf
   #         style: italic

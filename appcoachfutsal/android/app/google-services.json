@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "511465209704",
+    "project_id": "appcoachfutsal",
+    "storage_bucket": "appcoachfutsal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:511465209704:android:b64938b0f900fa455560dd",
+        "android_client_info": {
+          "package_name": "com.example.appcoachfutsal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDy69V5_aulmiGzvO3D9-Z1Wv_5wLE62G4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
