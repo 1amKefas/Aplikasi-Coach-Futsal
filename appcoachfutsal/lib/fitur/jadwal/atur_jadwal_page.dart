@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Tambahkan ini
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class AturJadwalPage extends StatefulWidget {
   const AturJadwalPage({Key? key}) : super(key: key);
@@ -46,6 +49,70 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
       setState(() {
         selectedTime = time;
       });
+    }
+  }
+
+  Future<void> _isiLokasiDariGPS() async {
+    // Permission handler
+    var status = await Permission.location.request();
+    if (!status.isGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Izin lokasi diperlukan untuk fitur ini')),
+      );
+      return;
+    }
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('GPS belum aktif')),
+        );
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Izin lokasi ditolak')),
+          );
+          return;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Izin lokasi ditolak permanen')),
+        );
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        setState(() {
+          lokasiController.text =
+              '${place.street}, ${place.subLocality}, ${place.locality}';
+        });
+      } else {
+        setState(() {
+          lokasiController.text =
+              '${position.latitude}, ${position.longitude}';
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal mendapatkan lokasi: $e')),
+      );
     }
   }
 
@@ -151,7 +218,23 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
             ),
             const Text('Tempat / Lokasi', style: TextStyle(fontWeight: FontWeight.bold)),
             Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 32),
+              margin: const EdgeInsets.only(top: 8, bottom: 8),
+              child: Row(
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: _isiLokasiDariGPS,
+                    icon: const Icon(Icons.my_location),
+                    label: const Text('Isi Lokasi Otomatis'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              margin: const EdgeInsets.only(bottom: 32),
               decoration: BoxDecoration(
                 color: Colors.teal[50],
                 borderRadius: BorderRadius.circular(8),

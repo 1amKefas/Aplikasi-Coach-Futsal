@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class PlayerDetailPage extends StatelessWidget {
+class PlayerDetailPage extends StatefulWidget {
   final String name;
   final String position;
   final int number;
@@ -15,9 +16,55 @@ class PlayerDetailPage extends StatelessWidget {
   });
 
   @override
+  State<PlayerDetailPage> createState() => _PlayerDetailPageState();
+}
+
+class _PlayerDetailPageState extends State<PlayerDetailPage> {
+  final TextEditingController descController = TextEditingController();
+  String? docId;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlayerDesc();
+  }
+
+  Future<void> _loadPlayerDesc() async {
+    // Cari dokumen player berdasarkan nama, nomor, dan posisi
+    final query = await FirebaseFirestore.instance
+        .collection('players')
+        .where('name', isEqualTo: widget.name)
+        .where('number', isEqualTo: widget.number.toString())
+        .where('position', isEqualTo: widget.position)
+        .limit(1)
+        .get();
+
+    if (query.docs.isNotEmpty) {
+      docId = query.docs.first.id;
+      descController.text = query.docs.first.data()['desc'] ?? '';
+    }
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> _saveDesc() async {
+    if (docId != null) {
+      await FirebaseFirestore.instance
+          .collection('players')
+          .doc(docId)
+          .update({'desc': descController.text});
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Deskripsi berhasil disimpan')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-    backgroundColor: Colors.grey[100],
+      backgroundColor: Colors.grey[100],
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -32,95 +79,106 @@ class PlayerDetailPage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Card pemain
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6)],
-              ),
-              child: Row(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
                 children: [
-                  // Foto Pemain
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundImage: AssetImage('assets/images/profile.png'),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // Info Pemain
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Posisi
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.orange[400],
-                          borderRadius: BorderRadius.circular(8),
+                  // Card pemain
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6)],
+                    ),
+                    child: Row(
+                      children: [
+                        // Foto Pemain
+                        CircleAvatar(
+                          radius: 30,
+                          backgroundImage: AssetImage(widget.imageAsset),
                         ),
-                        child: Text(
-                          position.toUpperCase(),
-                          style: const TextStyle(fontSize: 12, color: Colors.white),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
+                        const SizedBox(width: 12),
 
-                      // Nama
-                      Text(
-                        name,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                        // Info Pemain
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Posisi
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[400],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                widget.position.toUpperCase(),
+                                style: const TextStyle(fontSize: 12, color: Colors.white),
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+
+                            // Nama
+                            Text(
+                              widget.name,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+
+                        const Spacer(),
+
+                        // Nomor Punggung
+                        Text(
+                          widget.number.toString(),
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
 
-                  const Spacer(),
+                  const SizedBox(height: 20),
 
-                  // Nomor Punggung
-                  Text(
-                    number.toString(),
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey),
+                  // Deskripsi yang bisa diedit
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Deskripsi Pemain:", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: descController,
+                          maxLines: 5,
+                          decoration: const InputDecoration(
+                            hintText: "Tulis deskripsi/keterangan pemain di sini...",
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: _saveDesc,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text("Simpan Deskripsi"),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Detail Lainnya
-            Container(
-              padding: const EdgeInsets.all(50),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Nama: Emi Martinez", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Kewarganegaraan: Argentina", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Umur: 27", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Tinggi: 192cm", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Berat: 90kg", style: TextStyle(fontWeight: FontWeight.bold)),
-                  SizedBox(height: 8),
-                  Text("Transfer: 20m", style: TextStyle(fontWeight: FontWeight.bold)),
-                ],
-              ),
-            )
-          ],
-        ),
-      ),
     );
   }
 }
-
-

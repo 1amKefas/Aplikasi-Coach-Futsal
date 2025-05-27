@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:appcoachfutsal/SplashScreen/splash2.dart';
-import 'package:appcoachfutsal/main.dart';
 import 'dart:async';
 
 

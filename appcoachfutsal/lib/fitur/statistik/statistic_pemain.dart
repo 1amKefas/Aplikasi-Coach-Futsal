@@ -3,6 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 
 
 class StatistikPemainPage extends StatefulWidget {
+  const StatistikPemainPage({super.key});
+
   @override
   _StatistikPemainPageState createState() => _StatistikPemainPageState();
 }
@@ -46,7 +48,9 @@ class _StatistikPemainPageState extends State<StatistikPemainPage> {
   @override
   void dispose() {
     // Dispose semua controllers saat halaman dihapus
-    controllers.values.forEach((controller) => controller.dispose());
+    for (var controller in controllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -623,6 +627,8 @@ class _StatistikPemainPageState extends State<StatistikPemainPage> {
 
 // Contoh penggunaan untuk dimasukkan ke dalam aplikasi yang sudah ada
 class StatistikApp extends StatelessWidget {
+  const StatistikApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AddPlayerPage extends StatefulWidget {
   const AddPlayerPage({super.key});
@@ -13,6 +14,37 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
   String? selectedPosition;
 
   final List<String> positions = ['KIPER', 'FLANK', 'ANCHOR', 'MIDFIELD'];
+
+  Future<void> _addPlayer() async {
+    final name = nameController.text.trim();
+    final number = numberController.text.trim();
+    final position = selectedPosition;
+
+    if (name.isEmpty || number.isEmpty || position == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua field harus diisi!')),
+      );
+      return;
+    }
+
+    await FirebaseFirestore.instance.collection('players').add({
+      'name': name,
+      'number': number,
+      'position': position,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pemain berhasil ditambahkan')),
+    );
+
+    nameController.clear();
+    numberController.clear();
+    setState(() {
+      selectedPosition = null;
+    });
+    Navigator.pop(context); // Kembali ke halaman sebelumnya
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +74,19 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Masukkan Nama Pemain'),
+            TextFormField(
+              controller: nameController,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.green[50],
+                hintText: 'Masukkan Nama Pemain',
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             const Text(
@@ -50,7 +94,30 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Pilih Posisi'),
+            DropdownButtonFormField<String>(
+              value: selectedPosition,
+              items: positions
+                  .map((pos) => DropdownMenuItem(
+                        value: pos,
+                        child: Text(pos),
+                      ))
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  selectedPosition = val;
+                });
+              },
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.green[50],
+                hintText: 'Pilih Posisi',
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             const Text(
@@ -58,20 +125,27 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Masukkan Nomor Punggung'),
-            const SizedBox(height: 16),
-
-
-
+            TextFormField(
+              controller: numberController,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: Colors.green[50],
+                hintText: 'Masukkan Nomor Punggung',
+                contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(6),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 40),
 
             SizedBox(
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
-                  // aksi tambah aspek
-                },
+                onPressed: _addPlayer,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.black,
                   foregroundColor: Colors.white,
@@ -89,27 +163,3 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
     );
   }
 }
-
-class Player {
-  final String name;
-  final String position;
-  final String number;
-
-  Player({required this.name, required this.position, required this.number});
-}
-
-Widget _buildInputField(String hint) {
-    return TextFormField(
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.green[50],
-        hintText: hint,
-        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
-        ),
-      ),
-    );
-  }
-

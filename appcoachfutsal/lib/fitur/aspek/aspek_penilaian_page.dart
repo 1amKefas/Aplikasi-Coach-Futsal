@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
-
-// Update Tambah Aspek Page
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:appcoachfutsal/fitur/aspek/tambah_aspek_page.dart';
 
-class AspekPenilaianPage extends StatelessWidget {
+class AspekPenilaianPage extends StatefulWidget {
   const AspekPenilaianPage({super.key});
 
+  @override
+  State<AspekPenilaianPage> createState() => _AspekPenilaianPageState();
+}
+
+class _AspekPenilaianPageState extends State<AspekPenilaianPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,16 +28,42 @@ class AspekPenilaianPage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: List.generate(5, (index) => Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: _buildAspekCard(),
-        ))..add(const SizedBox(height: 100)), // Tambahan spacing untuk FAB
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('aspek').orderBy('createdAt', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Terjadi error'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Belum ada aspek'));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: docs.length,
+            itemBuilder: (context, index) {
+              final doc = docs[index];
+              final data = doc.data() as Map<String, dynamic>;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: _buildAspekCard(
+                  context: context,
+                  docId: doc.id,
+                  aspek: data['aspek'] ?? '',
+                  persentase: data['persentase'] ?? '',
+                  core: data['core'] ?? '',
+                  secondary: data['secondary'] ?? '',
+                ),
+              );
+            },
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // aksi tambah aspek
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const TambahAspekPage()),
@@ -47,7 +77,19 @@ class AspekPenilaianPage extends StatelessWidget {
     );
   }
 
-  Widget _buildAspekCard() {
+  Widget _buildAspekCard({
+    required BuildContext context,
+    required String docId,
+    required String aspek,
+    required String persentase,
+    required String core,
+    required String secondary,
+  }) {
+    final TextEditingController aspekController = TextEditingController(text: aspek);
+    final TextEditingController persentaseController = TextEditingController(text: persentase);
+    final TextEditingController coreController = TextEditingController(text: core);
+    final TextEditingController secondaryController = TextEditingController(text: secondary);
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 3,
@@ -59,19 +101,18 @@ class AspekPenilaianPage extends StatelessWidget {
             // Header: Nama Aspek + Icon
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
+              children: [
                 Text(
-                  'Nama Aspek',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  aspek,
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                Icon(Icons.groups_2_outlined),
+                const Icon(Icons.groups_2_outlined),
               ],
             ),
 
-            // Garis pembatas
-            const SizedBox(height: 4), // Lebih rapat sebelum divider
+            const SizedBox(height: 4),
             const Divider(thickness: 1),
-            const SizedBox(height: 4), // Lebih rapat setelah divider
+            const SizedBox(height: 4),
 
             // Bagian isi faktor: label kiri - angka kanan
             Row(
@@ -90,33 +131,86 @@ class AspekPenilaianPage extends StatelessWidget {
                     ],
                   ),
                 ),
-                // Nilai %
+                // Nilai %/angka
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  children: const [
-                    Text('40 %'),
-                    SizedBox(height: 4),
-                    Text('60 %'),
-                    SizedBox(height: 4),
-                    Text('40 %'),
+                  children: [
+                    Text('$persentase %'),
+                    const SizedBox(height: 4),
+                    Text('$core %'),
+                    const SizedBox(height: 4),
+                    Text('$secondary %'),
                   ],
                 ),
               ],
             ),
 
-            // Garis pembatas
-            const SizedBox(height: 4), // Lebih rapat sebelum divider
+            const SizedBox(height: 4),
             const Divider(thickness: 1),
-            const SizedBox(height: 4), // Lebih rapat setelah divider
+            const SizedBox(height: 4),
 
             // Edit & Delete Buttons
             Row(
               children: [
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Edit Aspek'),
+                        content: SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: aspekController,
+                                decoration: const InputDecoration(labelText: 'Aspek Penilaian'),
+                              ),
+                              TextFormField(
+                                controller: persentaseController,
+                                decoration: const InputDecoration(labelText: 'Persentase'),
+                                keyboardType: TextInputType.number,
+                              ),
+                              TextFormField(
+                                controller: coreController,
+                                decoration: const InputDecoration(labelText: 'Core Factor'),
+                                keyboardType: TextInputType.number,
+                              ),
+                              TextFormField(
+                                controller: secondaryController,
+                                decoration: const InputDecoration(labelText: 'Secondary Factor'),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ],
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Batal'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await FirebaseFirestore.instance.collection('aspek').doc(docId).update({
+                                'aspek': aspekController.text.trim(),
+                                'persentase': persentaseController.text.trim(),
+                                'core': coreController.text.trim(),
+                                'secondary': secondaryController.text.trim(),
+                              });
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Aspek berhasil diupdate')),
+                              );
+                              setState(() {});
+                            },
+                            child: const Text('Simpan'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green[400],
-                    foregroundColor: Colors.white, // Warna teks jadi putih
+                    foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(6),
@@ -124,49 +218,53 @@ class AspekPenilaianPage extends StatelessWidget {
                   ),
                   child: const Text('Edit'),
                 ),
-                // Geser tombol Delete sedikit ke kanan
-                Padding(
-                  padding: const EdgeInsets.only(left: 175.0), // Ubah nilai sesuai selera
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[400],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Hapus Aspek'),
+                        content: const Text('Yakin ingin menghapus aspek ini?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Batal'),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red[400],
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text('Hapus'),
+                          ),
+                        ],
                       ),
+                    );
+                    if (confirm == true) {
+                      await FirebaseFirestore.instance.collection('aspek').doc(docId).delete();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Aspek berhasil dihapus')),
+                      );
+                      setState(() {});
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[400],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: const Text('Delete'),
                   ),
+                  child: const Text('Delete'),
                 ),
               ],
             )
           ],
         ),
       ),
-    );
-  }
-}
-
-class _BottomNavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _BottomNavItem({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: Colors.white),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(color: Colors.white, fontSize: 12),
-        ),
-      ],
     );
   }
 }

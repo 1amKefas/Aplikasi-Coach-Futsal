@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:appcoachfutsal/SplashScreen/splash1.dart';
-import 'package:appcoachfutsal/main.dart';
 import 'package:appcoachfutsal/loginNregister/login.dart';
 import 'package:appcoachfutsal/loginNregister/register.dart';
 

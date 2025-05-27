@@ -1,11 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:appcoachfutsal/fitur/kriteria/list_kriteria.dart';
-import 'package:appcoachfutsal/fitur/player/player_detail_page.dart';
 import 'dart:async';
 import 'package:appcoachfutsal/fitur/player/player_list_page.dart';
-import 'package:appcoachfutsal/fitur/player/add_player_page.dart';
-import 'package:appcoachfutsal/SplashScreen/splash1.dart';
 import 'package:appcoachfutsal/SplashScreen/splash2.dart';
 
 // Update Page Profile
@@ -21,8 +18,6 @@ import 'package:appcoachfutsal/fitur/lineup/LineUp_page.dart';
 import 'package:appcoachfutsal/fitur/statistik/statistic_pemain.dart';
 import 'package:appcoachfutsal/fitur/jadwal/atur_jadwal_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
  // harus sesuai file dari flutterfire configure
 
 Future<String> getUserName() async {
@@ -79,20 +74,14 @@ class DashboardPage extends StatelessWidget {
               // Profile singkat
               buildProfileSection(),
 
-              // Gambar singa biru
-             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Center( // Tambahin ini
-                  child: Image.asset(
-                    'assets/images/singa.png',
-                    fit: BoxFit.cover,
-                  ),
+              // Carousel Section
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0.0, vertical: 12),
+                child: SizedBox(
+                  height: 180,
+                  child: _DashboardCarousel(),
                 ),
               ),
-            ),
-
 
               const SizedBox(height: 20),
 
@@ -336,10 +325,6 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-
-
-
-
  Widget jadwalCard(String title, String date, String time, String location) {
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6),
@@ -382,7 +367,6 @@ class DashboardPage extends StatelessWidget {
   );
 }
 
-
   Widget bottomNavItem(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
@@ -395,7 +379,6 @@ class DashboardPage extends StatelessWidget {
       ),
     );
   }
-
 
   Widget buildProfileSection() {
     return Padding(
@@ -455,6 +438,63 @@ class DashboardPage extends StatelessWidget {
           Text(label, style: TextStyle(color: Colors.grey[700])),
         ],
       ),
+    );
+  }
+}
+
+// Carousel Widget
+class _DashboardCarousel extends StatefulWidget {
+  @override
+  State<_DashboardCarousel> createState() => _DashboardCarouselState();
+}
+
+class _DashboardCarouselState extends State<_DashboardCarousel> {
+  final PageController _controller = PageController(viewportFraction: 0.7, initialPage: 2);
+  int _currentPage = 2;
+
+  final List<String> images = [
+    'assets/images/singa.png',
+    'assets/images/singa.png',
+    'assets/images/singa.png',
+    'assets/images/singa.png',
+    'assets/images/singa.png',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return PageView.builder(
+      controller: _controller,
+      itemCount: images.length,
+      onPageChanged: (index) {
+        setState(() {
+          _currentPage = index;
+        });
+      },
+      itemBuilder: (context, index) {
+        final isCurrent = index == _currentPage;
+        final scale = isCurrent ? 1.0 : 0.8;
+        final opacity = isCurrent ? 1.0 : 0.7;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.ease,
+          padding: EdgeInsets.symmetric(vertical: isCurrent ? 0 : 16, horizontal: 8),
+          child: Transform.scale(
+            scale: scale,
+            child: Opacity(
+              opacity: opacity,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.asset(
+                  images[index],
+                  fit: BoxFit.cover,
+                  height: 180,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

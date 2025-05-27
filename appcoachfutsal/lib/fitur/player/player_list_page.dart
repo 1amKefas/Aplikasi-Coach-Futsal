@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:appcoachfutsal/fitur/player/add_player_page.dart';
-import 'package:appcoachfutsal/fitur/player/player_detail_page.dart'; // Tambahkan ini
+import 'package:appcoachfutsal/fitur/player/player_detail_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class PlayerListPage extends StatelessWidget {
   const PlayerListPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final players = [
-      {'name': 'Emi Martinez', 'position': 'KIPER', 'number': '1'},
-      {'name': 'Rudiger', 'position': 'FLANK', 'number': '3'},
-      {'name': 'Raphina', 'position': 'FLANK', 'number': '11'},
-      {'name': 'Pedri', 'position': 'ANCHOR', 'number': '8'},
-      {'name': 'Gavi', 'position': 'MIDFIELD', 'number': '10'},
-      {'name': 'De Jong', 'position': 'MIDFIELD', 'number': '34'},
-    ];
-
     Map<String, Color> positionColor = {
       'KIPER': Colors.orange,
       'FLANK': Colors.blue,
@@ -39,57 +31,72 @@ class PlayerListPage extends StatelessWidget {
         ),
         centerTitle: true,
       ),
-      body: ListView.builder(
-        itemCount: players.length,
-        padding: const EdgeInsets.all(12),
-        itemBuilder: (context, index) {
-          final player = players[index];
-          final color = positionColor[player['position']] ?? Colors.grey;
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('players').orderBy('createdAt', descending: true).snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Terjadi error'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(child: Text('Belum ada pemain'));
+          }
+          return ListView.builder(
+            itemCount: docs.length,
+            padding: const EdgeInsets.all(12),
+            itemBuilder: (context, index) {
+              final player = docs[index].data() as Map<String, dynamic>;
+              final color = positionColor[player['position']] ?? Colors.grey;
 
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: const [
-                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
-              ],
-            ),
-            child: ListTile(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PlayerDetailPage(
-                      name: player['name']!,
-                      position: player['position']!,
-                      number: int.parse(player['number']!), // parsing ke int
-                      imageAsset: 'assets/images/profile.png', // tambahkan imageAsset
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+                  ],
+                ),
+                child: ListTile(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PlayerDetailPage(
+                          name: player['name'] ?? '',
+                          position: player['position'] ?? '',
+                          number: int.tryParse(player['number'] ?? '0') ?? 0,
+                          imageAsset: 'assets/images/profile.png',
+                        ),
+                      ),
+                    );
+                  },
+                  leading: CircleAvatar(
+                    radius: 25,
+                    backgroundImage: AssetImage('assets/images/profile.png'),
+                  ),
+                  title: Text(player['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  subtitle: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      player['position'] ?? '',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
-                );
-              },
-              leading: CircleAvatar(
-                radius: 25,
-                backgroundImage: AssetImage('assets/images/profile.png'),
-              ),
-              title: Text(player['name']!, style: const TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(12),
+                  trailing: Text(
+                    player['number'] ?? '',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
                 ),
-                child: Text(
-                  player['position']!,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-              trailing: Text(
-                player['number']!,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
+              );
+            },
           );
         },
       ),
