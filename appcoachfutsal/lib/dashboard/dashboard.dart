@@ -36,6 +36,14 @@ Future<String> getUserName() async {
   return 'User';
 }
 
+String _bulanIndo(int bulan) {
+  const bulanIndo = [
+    '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+  ];
+  return bulanIndo[bulan];
+}
+
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
 
@@ -123,9 +131,42 @@ class DashboardPage extends StatelessWidget {
               // Jadwal section
               sectionTitle('Jadwal'),
               const SizedBox(height: 12),
-
-              jadwalCard('Latihan', '20 Mar, 2025', '16:00', 'Margonda Sports Center'),
-              jadwalCard('Latihan', '22 Mar, 2025', '16:00', 'Margonda Sports Center'),
+              StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance.collection('jadwal').orderBy('tanggal').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text('Terjadi error saat mengambil jadwal'),
+                    );
+                  }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text('Belum ada jadwal'),
+                    );
+                  }
+                  return Column(
+                    children: docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      final tanggal = (data['tanggal'] as Timestamp).toDate();
+                      final jam = data['jam'] ?? '';
+                      final lokasi = data['lokasi'] ?? '';
+                      return jadwalCard(
+                        'Latihan',
+                        // Format tanggal
+                        '${tanggal.day.toString().padLeft(2, '0')} ${_bulanIndo(tanggal.month)}, ${tanggal.year}',
+                        jam,
+                        lokasi,
+                      );
+                    }).toList(),
+                  );
+                },
+              ),
 
               const SizedBox(height: 80),
             ],
