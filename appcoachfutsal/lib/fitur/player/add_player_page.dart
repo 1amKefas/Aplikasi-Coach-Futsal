@@ -27,6 +27,32 @@ class _AddPlayerPageState extends State<AddPlayerPage> {
       return;
     }
 
+    // Cek apakah nomor punggung sudah ada
+    final existingNumber = await FirebaseFirestore.instance
+        .collection('players')
+        .where('number', isEqualTo: number)
+        .get();
+
+    if (existingNumber.docs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nomor punggung sudah terdaftar!')),
+      );
+      return;
+    }
+
+    // Cek apakah nama sudah ada
+    final existingName = await FirebaseFirestore.instance
+        .collection('players')
+        .where('name', isEqualTo: name)
+        .get();
+
+    if (existingName.docs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama pemain sudah terdaftar!')),
+      );
+      return;
+    }
+
     await FirebaseFirestore.instance.collection('players').add({
       'name': name,
       'number': number,

@@ -1,3 +1,4 @@
+import 'package:appcoachfutsal/dashboard/dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:appcoachfutsal/fitur/player/add_player_page.dart';
 import 'package:appcoachfutsal/fitur/player/player_detail_page.dart';
@@ -20,7 +21,13 @@ class PlayerListPage extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: const BackButton(color: Colors.black),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const DashboardPage()),
+          ),
+        ),
         title: const Text(
           'DATA PEMAIN',
           style: TextStyle(

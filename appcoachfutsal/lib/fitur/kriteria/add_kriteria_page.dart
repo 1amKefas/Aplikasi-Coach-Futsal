@@ -8,19 +8,39 @@ class TambahKriteriaPage extends StatefulWidget {
   State<TambahKriteriaPage> createState() => _TambahKriteriaPageState();
 }
 
+// ...existing code...
 class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
-  final TextEditingController posisiController = TextEditingController();
-  final TextEditingController aspekController = TextEditingController();
   final TextEditingController kriteriaController = TextEditingController();
-  final TextEditingController targetController = TextEditingController();
-  final TextEditingController targetKriteriaController = TextEditingController();
+  // final TextEditingController targetController = TextEditingController(); // Tidak perlu lagi
+
+  String? selectedPosisi;
+  String? selectedAspek;
+  String? selectedTipeKriteria;
+  String? selectedTarget;
+  final List<String> posisiList = ['Pivot', 'Anchor', 'Flank', 'Kiper'];
+  final List<String> tipeKriteriaList = ['Core Factor', 'Secondary Factor'];
+  final List<String> targetList = ['1', '2', '3', '4'];
+  List<String> aspekList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAspekList();
+  }
+
+  Future<void> _loadAspekList() async {
+    final snapshot = await FirebaseFirestore.instance.collection('aspek').get();
+    setState(() {
+      aspekList = snapshot.docs.map((e) => e['aspek'] as String).toList();
+    });
+  }
 
   Future<void> _tambahKriteria() async {
-    final posisi = posisiController.text.trim();
-    final aspek = aspekController.text.trim();
+    final posisi = selectedPosisi ?? '';
+    final aspek = selectedAspek ?? '';
     final kriteria = kriteriaController.text.trim();
-    final target = targetController.text.trim();
-    final targetKriteria = targetKriteriaController.text.trim();
+    final target = selectedTarget ?? '';
+    final targetKriteria = selectedTipeKriteria ?? '';
 
     if (posisi.isEmpty || aspek.isEmpty || kriteria.isEmpty || target.isEmpty || targetKriteria.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -42,11 +62,13 @@ class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
       const SnackBar(content: Text('Kriteria berhasil ditambahkan')),
     );
 
-    posisiController.clear();
-    aspekController.clear();
+    setState(() {
+      selectedPosisi = null;
+      selectedAspek = null;
+      selectedTipeKriteria = null;
+      selectedTarget = null;
+    });
     kriteriaController.clear();
-    targetController.clear();
-    targetKriteriaController.clear();
     Navigator.pop(context);
   }
 
@@ -78,7 +100,31 @@ class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Pilih Posisi', posisiController),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedPosisi,
+                hint: const Text('Pilih Posisi'),
+                items: posisiList
+                    .map((e) => DropdownMenuItem<String>(
+                          value: e,
+                          child: Text(e),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedPosisi = val;
+                  });
+                },
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             const Text(
@@ -86,7 +132,31 @@ class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Masukkan Aspek*', aspekController),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedAspek,
+                hint: const Text('Pilih Aspek Penilaian'),
+                items: aspekList
+                    .map((e) => DropdownMenuItem<String>(
+                          value: e,
+                          child: Text(e),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedAspek = val;
+                  });
+                },
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             const Text(
@@ -102,15 +172,63 @@ class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Masukkan Target*', targetController),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedTarget,
+                hint: const Text('Pilih Target'),
+                items: targetList
+                    .map((e) => DropdownMenuItem<String>(
+                          value: e,
+                          child: Text(e),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedTarget = val;
+                  });
+                },
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             const Text(
-              'Target Kriteria',
+              'Tipe Kriteria',
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildInputField('Pilih Target Kriteria*', targetKriteriaController),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: DropdownButtonFormField<String>(
+                value: selectedTipeKriteria,
+                hint: const Text('Pilih Tipe Kriteria'),
+                items: tipeKriteriaList
+                    .map((e) => DropdownMenuItem<String>(
+                          value: e,
+                          child: Text(e),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedTipeKriteria = val;
+                  });
+                },
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                ),
+              ),
+            ),
             const SizedBox(height: 16),
 
             SizedBox(
@@ -151,3 +269,4 @@ class _TambahKriteriaPageState extends State<TambahKriteriaPage> {
     );
   }
 }
+// ...existing code...

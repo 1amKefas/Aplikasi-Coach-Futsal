@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:appcoachfutsal/fitur/player/player_list_page.dart';
 
 class PlayerDetailPage extends StatefulWidget {
   final String name;
@@ -24,6 +25,12 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
   String? docId;
   bool isLoading = true;
 
+  // Tambahan untuk edit
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController numberController = TextEditingController();
+  String? selectedPosition;
+  final List<String> positions = ['KIPER', 'FLANK', 'ANCHOR', 'MIDFIELD'];
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +50,10 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
     if (query.docs.isNotEmpty) {
       docId = query.docs.first.id;
       descController.text = query.docs.first.data()['desc'] ?? '';
+      // Set initial value for edit
+      nameController.text = widget.name;
+      numberController.text = widget.number.toString();
+      selectedPosition = widget.position;
     }
     setState(() {
       isLoading = false;
@@ -59,6 +70,144 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
         const SnackBar(content: Text('Deskripsi berhasil disimpan')),
       );
     }
+  }
+
+  Future<void> _editPlayer() async {
+    final newName = nameController.text.trim();
+    final newNumber = numberController.text.trim();
+    final newPosition = selectedPosition;
+
+    if (newName.isEmpty || newNumber.isEmpty || newPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Semua field harus diisi!')),
+      );
+      return;
+    }
+
+    // Cek apakah nama dan nomor punggung sudah ada (kecuali data sendiri)
+    final query = await FirebaseFirestore.instance
+        .collection('players')
+        .where('name', isEqualTo: newName)
+        .where('number', isEqualTo: newNumber)
+        .get();
+
+    bool isDuplicate = false;
+    for (var doc in query.docs) {
+      if (doc.id != docId) {
+        isDuplicate = true;
+        break;
+      }
+    }
+
+    if (isDuplicate) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nama dan nomor punggung sudah terdaftar!')),
+      );
+      return;
+    }
+
+    // Update data
+    await FirebaseFirestore.instance.collection('players').doc(docId).update({
+      'name': newName,
+      'number': newNumber,
+      'position': newPosition,
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Data pemain berhasil diupdate')),
+    );
+
+    setState(() {
+      // Update tampilan
+    });
+    Navigator.pop(context); // Tutup dialog
+  }
+
+  Future<void> _deletePlayer() async {
+    if (docId != null) {
+      await FirebaseFirestore.instance.collection('players').doc(docId).delete();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pemain berhasil dihapus')),
+      );
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const PlayerListPage()),
+        (route) => false 
+      ); // Kembali ke list
+    }
+  }
+
+  void _showEditDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Pemain'),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(labelText: 'Nama Pemain'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedPosition,
+                items: positions
+                    .map((pos) => DropdownMenuItem(
+                          value: pos,
+                          child: Text(pos),
+                        ))
+                    .toList(),
+                onChanged: (val) {
+                  setState(() {
+                    selectedPosition = val;
+                  });
+                },
+                decoration: const InputDecoration(labelText: 'Posisi'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: numberController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Nomor Punggung'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: _editPlayer,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Pemain'),
+        content: const Text('Yakin ingin menghapus pemain ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: _deletePlayer,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -78,6 +227,18 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit, color: Colors.orange),
+            onPressed: _showEditDialog,
+            tooltip: 'Edit Pemain',
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete, color: Colors.red),
+            onPressed: _showDeleteDialog,
+            tooltip: 'Hapus Pemain',
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -114,7 +275,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                widget.position.toUpperCase(),
+                                (selectedPosition ?? widget.position).toUpperCase(),
                                 style: const TextStyle(fontSize: 12, color: Colors.white),
                               ),
                             ),
@@ -122,7 +283,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
 
                             // Nama
                             Text(
-                              widget.name,
+                              nameController.text.isNotEmpty ? nameController.text : widget.name,
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                           ],
@@ -132,7 +293,7 @@ class _PlayerDetailPageState extends State<PlayerDetailPage> {
 
                         // Nomor Punggung
                         Text(
-                          widget.number.toString(),
+                          numberController.text.isNotEmpty ? numberController.text : widget.number.toString(),
                           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.grey),
                         ),
                       ],

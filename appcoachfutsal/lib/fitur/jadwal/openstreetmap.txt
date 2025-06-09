@@ -2,16 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:flutter_typeahead/flutter_typeahead.dart';
-import 'package:flutter_polyline_points/flutter_polyline_points.dart';
-import 'package:google_place/google_place.dart' as gp;
-import 'dart:async'; 
-import 'dart:math';
-
-
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:nominatim_flutter/nominatim_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class AturJadwalPage extends StatefulWidget {
   const AturJadwalPage({Key? key}) : super(key: key);
@@ -89,47 +85,12 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
         );
         return;
       }
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Izin lokasi ditolak')),
-          );
-          return;
-        }
-      }
-      if (permission == LocationPermission.deniedForever) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Izin lokasi ditolak permanen')),
-        );
-        return;
-      }
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      List<Placemark> placemarks = await placemarkFromCoordinates(
-        position.latitude,
-        position.longitude,
-      );
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        String name = [
-          place.name,
-          place.street,
-          place.subLocality,
-          place.locality,
-          place.administrativeArea
-        ].where((e) => e != null && e.isNotEmpty).join(', ');
-        setState(() {
-          lokasiController.text = _shortenPlaceName(name);
-        });
-      } else {
-        setState(() {
-          lokasiController.text =
-              '${position.latitude}, ${position.longitude}';
-        });
-      }
+      setState(() {
+        lokasiController.text = "${position.latitude}, ${position.longitude}";
+      });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Gagal mendapatkan lokasi: $e')),
@@ -200,9 +161,7 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
     );
   }
 
-  // Tambahkan fungsi untuk menghapus lokasi tersimpan dari Firestore dan list lokal
   Future<void> _hapusLokasiTersimpan(String namaLokasi) async {
-    // Cari dokumen lokasi berdasarkan nama
     final snapshot = await FirebaseFirestore.instance
         .collection('lokasi')
         .where('nama', isEqualTo: namaLokasi)
@@ -238,15 +197,6 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
       lokasiController.text = doc['lokasi'];
       selectedLokasi = doc['lokasi'];
     });
-  }
-
-  String _shortenPlaceName(String name) {
-    List<String> parts = name.split(',');
-    String short = parts.take(2).join(',').trim();
-    if (short.length > 30) {
-      return short.substring(0, 30) + "...";
-    }
-    return short;
   }
 
   @override
@@ -353,7 +303,7 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
                           .map((e) => DropdownMenuItem<String>(
                                 value: e,
                                 child: Text(
-                                  _shortenPlaceName(e),
+                                  e,
                                   overflow: TextOverflow.ellipsis,
                                   maxLines: 1,
                                 ),
@@ -371,7 +321,6 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
                       ),
                     ),
                   ),
-                  // Tombol hapus lokasi
                   if (selectedLokasi != null)
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
@@ -443,7 +392,7 @@ class _AturJadwalPageState extends State<AturJadwalPage> {
                         child: ListTile(
                           title: Text('${DateFormat('dd MMM yyyy').format(tanggal)} - $jam'),
                           subtitle: Text(
-                            _shortenPlaceName(lokasi),
+                            lokasi,
                             overflow: TextOverflow.ellipsis,
                             maxLines: 1,
                           ),
@@ -485,105 +434,18 @@ class MapPickerPage extends StatefulWidget {
   State<MapPickerPage> createState() => _MapPickerPageState();
 }
 
-const String googleApiKey = 'AIzaSyAhCh0iMCrhIYikIBQAr-S35FPImAi9Xmg'; // Ganti dengan API key kamu
-
 class _MapPickerPageState extends State<MapPickerPage> {
-  GoogleMapController? mapController;
-  LatLng picked = const LatLng(-6.200000, 106.816666); // Default Jakarta
+  MapController mapController = MapController();
+  LatLng picked = LatLng(-6.200000, 106.816666); // Default Jakarta
   String placeName = "Pilih lokasi di peta";
   TextEditingController searchController = TextEditingController();
-  LatLng? currentLatLng; // Simpan lokasi user
-
-  late gp.GooglePlace googlePlace;
-  List<gp.AutocompletePrediction> predictions = [];
-  Set<Polyline> polylines = {};
-  StreamSubscription<Position>? positionStream;
+  List<dynamic> searchResults = [];
   LatLng? userLatLng;
 
   @override
   void initState() {
     super.initState();
-    googlePlace = gp.GooglePlace(googleApiKey);
     _setInitialLocation();
-    // Tambahkan ini untuk real-time tracking
-    positionStream = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    ).listen((Position position) {
-      setState(() {
-        userLatLng = LatLng(position.latitude, position.longitude);
-        currentLatLng = userLatLng;
-      });
-      // Optional: update rute jika sudah ada tujuan
-      if (picked != null && picked != userLatLng) {
-        _showRoute(picked);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    positionStream?.cancel();
-    super.dispose();
-  }
-
-  void autoCompleteSearch(String value) async {
-    if (value.isNotEmpty) {
-      var result = await googlePlace.autocomplete.get(
-        value,
-        location: currentLatLng != null
-            ? gp.LatLon(currentLatLng!.latitude, currentLatLng!.longitude)
-            : null,
-        radius: 100000,
-        language: 'id',
-      );
-      print('Place API status: ${result?.status}');
-      // print('Place API error: ${result?.errorMessage}'); // Hapus baris ini jika error
-      setState(() {
-        predictions = result?.predictions ?? [];
-      });
-    } else {
-      setState(() {
-        predictions = [];
-      });
-    }
-  }
-
-  Future<void> _selectPrediction(gp.AutocompletePrediction p) async {
-    var detail = await googlePlace.details.get(p.placeId!);
-    if (detail != null && detail.result != null && detail.result!.geometry != null) {
-      final loc = detail.result!.geometry!.location!;
-      final latLng = LatLng(loc.lat!, loc.lng!);
-      mapController?.animateCamera(CameraUpdate.newLatLng(latLng));
-      setState(() {
-        picked = latLng;
-        placeName = p.description ?? '';
-        predictions = [];
-      });
-      await _showRoute(latLng);
-    }
-  }
-
-  // Fungsi untuk menampilkan rute dari posisi user ke lokasi tujuan
-  Future<void> _showRoute(LatLng destination) async {
-    if (currentLatLng == null) return;
-    PolylinePoints polylinePoints = PolylinePoints();
-    PolylineResult result = await polylinePoints.getRouteBetweenCoordinates(
-      googleApiKey,
-      PointLatLng(currentLatLng!.latitude, currentLatLng!.longitude),
-      PointLatLng(destination.latitude, destination.longitude),
-    );
-    if (result.points.isNotEmpty) {
-      setState(() {
-        polylines = {
-          Polyline(
-            polylineId: const PolylineId('route'),
-            color: Colors.blue,
-            width: 5,
-            points: result.points.map((e) => LatLng(e.latitude, e.longitude)).toList(),
-          ),
-        };
-      });
-    }
   }
 
   Future<void> _setInitialLocation() async {
@@ -597,90 +459,83 @@ class _MapPickerPageState extends State<MapPickerPage> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      final userLatLng = LatLng(position.latitude, position.longitude);
-
       setState(() {
-        picked = userLatLng;
-        currentLatLng = userLatLng;
+        picked = LatLng(position.latitude, position.longitude);
+        userLatLng = picked;
       });
-      await _updatePlaceName(userLatLng);
-
-      if (mapController != null) {
-        mapController!.animateCamera(CameraUpdate.newLatLng(userLatLng));
-      }
+      mapController.move(picked, 15);
+      _updatePlaceName(picked);
     } catch (_) {
       // Biarkan default Jakarta jika gagal
     }
   }
 
-  // Fungsi untuk menghitung jarak antara dua titik (dalam kilometer)
-  double _distanceInKm(LatLng a, LatLng b) {
-    const double earthRadius = 6371; // km
-    double dLat = (b.latitude - a.latitude) * (3.141592653589793 / 180.0);
-    double dLon = (b.longitude - a.longitude) * (3.141592653589793 / 180.0);
-
-    double lat1 = a.latitude * (3.141592653589793 / 180.0);
-    double lat2 = b.latitude * (3.141592653589793 / 180.0);
-
-    double aVal = 
-      (sin(dLat / 2) * sin(dLat / 2)) +
-      (sin(dLon / 2) * sin(dLon / 2)) * cos(lat1) * cos(lat2);
-    double c = 2 * atan2(sqrt(aVal), sqrt(1 - aVal));
-    return earthRadius * c;
-  }
-
-  Future<List<String>> _getPlaceSuggestions(String pattern) async {
-    if (pattern.isEmpty) return [];
-    try {
-      // Gunakan Google Place Autocomplete agar hasil lebih akurat dan lengkap
-      final googlePlace = gp.GooglePlace(googleApiKey);
-      final result = await googlePlace.autocomplete.get(
-        pattern,
-        location: currentLatLng != null
-            ? gp.LatLon(currentLatLng!.latitude, currentLatLng!.longitude)
-            : null,
-        radius: 100000, // 100km
-        language: 'id',
-      );
-      if (result != null && result.predictions != null) {
-        return result.predictions!
-            .map((p) => p.description ?? '')
-            .where((desc) => desc.isNotEmpty)
-            .toList();
-      }
-      return [];
-    } catch (_) {
-      return [];
-    }
-  }
-
   Future<void> _updatePlaceName(LatLng latLng) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(latLng.latitude, latLng.longitude);
-      if (placemarks.isNotEmpty) {
-        final p = placemarks.first;
-        String name = [
-          p.name,
-          p.street,
-          p.subLocality,
-          p.locality,
-          p.administrativeArea
-        ].where((e) => e != null && e.isNotEmpty).join(', ');
+      final url =
+          'https://nominatim.openstreetmap.org/reverse?format=json&lat=${latLng.latitude}&lon=${latLng.longitude}&zoom=18&addressdetails=1';
+      final response = await http.get(Uri.parse(url), headers: {
+        'User-Agent': 'appcoachfutsal/1.0'
+      });
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
         setState(() {
-          placeName = name.length > 40 ? name.substring(0, 40) + "..." : name;
+          placeName = data['display_name'] ?? "${latLng.latitude}, ${latLng.longitude}";
         });
       } else {
         setState(() {
           placeName = "${latLng.latitude}, ${latLng.longitude}";
         });
       }
-    } catch (e) {
+    } catch (_) {
       setState(() {
         placeName = "${latLng.latitude}, ${latLng.longitude}";
       });
     }
   }
 
+  Future<List<dynamic>> searchPlaceOsm(String value) async {
+    if (value.isNotEmpty) {
+      final nominatim = NominatimFlutter.instance;
+      final searchRequest = SearchRequest(
+        query: value,
+        limit: 8,
+      );
+      
+      final results = await nominatim.search(searchRequest: searchRequest);
+      return results;
+    } else {
+      return [];
+    }
+  }
+
+  void _searchPlace(String value) async {
+    if (value.isNotEmpty) {
+      final results = await searchPlaceOsm(value);
+      setState(() {
+        searchResults = results;
+      });
+    } else {
+      setState(() {
+        searchResults = [];
+      });
+    }
+  }
+
+  void _selectSearchResult(dynamic place) {
+    final lat = double.tryParse(place['lat'] ?? '');
+    final lon = double.tryParse(place['lon'] ?? '');
+    if (lat != null && lon != null) {
+      final latLng = LatLng(lat, lon);
+      setState(() {
+        picked = latLng;
+        placeName = place['display_name'] ?? '';
+        searchResults = [];
+        searchController.text = place['display_name'] ?? '';
+      });
+      mapController.move(latLng, 16);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -688,29 +543,42 @@ class _MapPickerPageState extends State<MapPickerPage> {
       appBar: AppBar(title: const Text('Pilih Lokasi di Map')),
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: picked,
-              zoom: 12,
+          FlutterMap(
+            mapController: mapController,
+            options: MapOptions(
+              center: picked,
+              zoom: 13,
+              onTap: (tapPos, latLng) {
+                setState(() {
+                  picked = latLng;
+                });
+                _updatePlaceName(latLng);
+              },
             ),
-            onMapCreated: (controller) {
-              mapController = controller;
-              _setInitialLocation();
-            },
-            onTap: (latLng) {
-              setState(() {
-                picked = latLng;
-              });
-              _updatePlaceName(latLng);
-            },
-            markers: {
-              Marker(
-                markerId: const MarkerId('picked'),
-                position: picked,
-                icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
-              )
-            },
-            polylines: polylines,
+            children: [
+              TileLayer(
+                urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                subdomains: const ['a', 'b', 'c'],
+                userAgentPackageName: 'com.example.appcoachfutsal',
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    width: 40,
+                    height: 40,
+                    point: picked,
+                    child: const Icon(Icons.location_on, color: Colors.red, size: 40),
+                  ),
+                  if (userLatLng != null)
+                    Marker(
+                      width: 30,
+                      height: 30,
+                      point: userLatLng!,
+                      child: const Icon(Icons.person_pin_circle, color: Colors.blue, size: 30),
+                    ),
+                ],
+              ),
+            ],
           ),
           Positioned(
             left: 0,
@@ -749,29 +617,29 @@ class _MapPickerPageState extends State<MapPickerPage> {
                         decoration: const InputDecoration(
                           hintText: 'Cari lokasi...',
                           border: InputBorder.none,
-                          prefixIcon: Icon(Icons.search)
+                          prefixIcon: Icon(Icons.search),
                         ),
-                        onChanged: autoCompleteSearch,
+                        onChanged: _searchPlace,
                       ),
-                      if (predictions.isNotEmpty)
+                      if (searchResults.isNotEmpty)
                         SizedBox(
                           height: 200,
                           child: ListView.builder(
-                            itemCount: predictions.length,
+                            itemCount: searchResults.length,
                             itemBuilder: (context, index) {
-                              final p = predictions[index];
+                              final p = searchResults[index];
                               return ListTile(
-                                title: Text(p.description ?? ''),
-                                onTap: () => _selectPrediction(p),
+                                title: Text(p.displayName ?? ''),
+                                onTap: () => _selectSearchResult(p),
                               );
                             },
                           ),
                         ),
-                      if (predictions.isEmpty && searchController.text.isNotEmpty)
+                      if (searchResults.isEmpty && searchController.text.isNotEmpty)
                         const Padding(
                           padding: EdgeInsets.all(16),
                           child: Text('Tidak ada hasil ditemukan.'),
-                        ),  
+                        ),
                     ],
                   ),
                 ),
@@ -789,5 +657,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
       ),
     );
   }
+  
+  SearchRequest({required String query, required int limit}) {}
 }
-// ...existing code...

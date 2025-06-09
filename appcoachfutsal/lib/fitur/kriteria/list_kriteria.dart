@@ -47,42 +47,77 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
             itemBuilder: (context, index) {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
-              final posisi = data['posisi'] ?? '';
               final aspek = data['aspek'] ?? '';
               final kriteria = data['kriteria'] ?? '';
               final target = data['target'] ?? '';
               final targetKriteria = data['targetKriteria'] ?? '';
 
-              final aspekController = TextEditingController(text: aspek);
-              final posisiController = TextEditingController(text: posisi);
-              final kriteriaController = TextEditingController(text: kriteria);
-              final targetController = TextEditingController(text: target);
-              final targetKriteriaController = TextEditingController(text: targetKriteria);
-
               return Card(
-                elevation: 3,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                elevation: 3,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header: Nama Kriteria + Icon
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(aspek, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const Icon(Icons.groups),
+                          Text(
+                            kriteria,
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                          const Icon(Icons.groups_2_outlined),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text('Posisi: $posisi'),
-                      Text('Kriteria: $kriteria'),
-                      Text('Target: $target'),
-                      Text('Target Kriteria: $targetKriteria'),
+                      // Tambahkan aspek di bawah kriteria
+                      const SizedBox(height: 4),
+                      Text(
+                        aspek,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.black.withOpacity(0.55),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      // ...lanjutkan kode seperti biasa...
+                      const Divider(thickness: 1),
+                      const SizedBox(height: 4),
+                      // Aspek penilaian, kecil & transparan
                       const SizedBox(height: 12),
+                      // Bagian isi faktor: label kiri - angka kanan
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Label
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text('Target:'),
+                                SizedBox(height: 4),
+                                Text('Tipe:'),
+                              ],
+                            ),
+                          ),
+                          // Nilai
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(target),
+                              const SizedBox(height: 4),
+                              Text(targetKriteria),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Divider(thickness: 1),
+                      const SizedBox(height: 4),
+                      // Edit & Delete Buttons
+                      Row(
                         children: [
                           ElevatedButton(
                             onPressed: () {
@@ -94,24 +129,24 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
                                     child: Column(
                                       children: [
                                         TextFormField(
-                                          controller: posisiController,
-                                          decoration: const InputDecoration(labelText: 'Posisi'),
-                                        ),
-                                        TextFormField(
-                                          controller: aspekController,
-                                          decoration: const InputDecoration(labelText: 'Aspek Penilaian'),
-                                        ),
-                                        TextFormField(
-                                          controller: kriteriaController,
+                                          initialValue: kriteria,
                                           decoration: const InputDecoration(labelText: 'Kriteria'),
+                                          onChanged: (val) => data['kriteria'] = val,
                                         ),
                                         TextFormField(
-                                          controller: targetController,
+                                          initialValue: aspek,
+                                          decoration: const InputDecoration(labelText: 'Aspek Penilaian'),
+                                          onChanged: (val) => data['aspek'] = val,
+                                        ),
+                                        TextFormField(
+                                          initialValue: target,
                                           decoration: const InputDecoration(labelText: 'Target'),
+                                          onChanged: (val) => data['target'] = val,
                                         ),
                                         TextFormField(
-                                          controller: targetKriteriaController,
-                                          decoration: const InputDecoration(labelText: 'Target Kriteria'),
+                                          initialValue: targetKriteria,
+                                          decoration: const InputDecoration(labelText: 'Tipe Kriteria'),
+                                          onChanged: (val) => data['targetKriteria'] = val,
                                         ),
                                       ],
                                     ),
@@ -124,11 +159,10 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
                                     ElevatedButton(
                                       onPressed: () async {
                                         await FirebaseFirestore.instance.collection('kriteria').doc(doc.id).update({
-                                          'posisi': posisiController.text.trim(),
-                                          'aspek': aspekController.text.trim(),
-                                          'kriteria': kriteriaController.text.trim(),
-                                          'target': targetController.text.trim(),
-                                          'targetKriteria': targetKriteriaController.text.trim(),
+                                          'kriteria': data['kriteria'],
+                                          'aspek': data['aspek'],
+                                          'target': data['target'],
+                                          'targetKriteria': data['targetKriteria'],
                                         });
                                         Navigator.pop(ctx);
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -142,10 +176,18 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
                                 ),
                               );
                             },
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green[400],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
                             child: const Text('Edit'),
                           ),
-                          TextButton(
+                          const Spacer(),
+                          ElevatedButton(
                             onPressed: () async {
                               final confirm = await showDialog<bool>(
                                 context: context,
@@ -159,7 +201,10 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
                                     ),
                                     ElevatedButton(
                                       onPressed: () => Navigator.pop(ctx, true),
-                                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red[400],
+                                        foregroundColor: Colors.white,
+                                      ),
                                       child: const Text('Hapus'),
                                     ),
                                   ],
@@ -173,10 +218,18 @@ class _DataKriteriaPageState extends State<DataKriteriaPage> {
                                 setState(() {});
                               }
                             },
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                          )
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red[400],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ),
+                            child: const Text('Delete'),
+                          ),
                         ],
-                      ),
+                      )
                     ],
                   ),
                 ),
